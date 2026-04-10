@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Design Semantics Explorer</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --blue-500: #2563eb; --blue-600: #1d4ed8; --blue-100: #dbeafe; --blue-50: #eff6ff;
+    --gray-50: #f9fafb; --gray-100: #f3f4f6; --gray-200: #e5e7eb; --gray-300: #d1d5db;
+    --gray-400: #9ca3af; --gray-500: #6b7280; --gray-600: #4b5563; --gray-700: #374151;
+    --gray-800: #1f2937; --gray-900: #111827; --white: #ffffff;
+    --red-500: #ef4444; --red-50: #fef2f2; --red-200: #fecaca;
+  }
+  html, body { height: 100%; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; background: var(--white); color: var(--gray-700); }
+  .app { display: grid; grid-template-rows: auto 1fr; height: 100vh; height: 100dvh; }
+  .header { padding: 10px 24px; border-bottom: 1px solid var(--gray-200); display: flex; align-items: baseline; gap: 14px; flex-shrink: 0; background: var(--white); }
+  .header h1 { font-size: 14px; font-weight: 700; color: var(--gray-900); letter-spacing: -0.02em; white-space: nowrap; }
+  .header p { font-size: 11px; color: var(--gray-400); }
+  .main-body { display: grid; grid-template-rows: 1fr 1fr 1fr; min-height: 0; overflow: hidden; }
+
+  /* ── CONTROLS ── */
+  .controls-panel { border-bottom: 1px solid var(--gray-200); background: var(--gray-50); overflow: auto; padding: 14px 24px; min-height: 0; }
+  .controls-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 18px; min-width: 880px; }
+  @media (max-width: 1100px) { .controls-grid { grid-template-columns: repeat(3, 1fr); min-width: 580px; } }
+  @media (max-width: 700px) { .controls-grid { grid-template-columns: repeat(2, 1fr); min-width: 420px; } }
+  .control-section h3 { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--gray-500); margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+  .control-section h3 .dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+  .slider-row { margin-bottom: 7px; }
+  .slider-row .label-row { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 1px; }
+  .slider-row label { font-size: 10px; font-weight: 600; color: var(--gray-500); text-transform: uppercase; letter-spacing: 0.04em; }
+  .slider-row .value { font-size: 10px; font-family: "SF Mono", "Fira Code", ui-monospace, monospace; color: var(--gray-400); }
+  input[type="range"] { -webkit-appearance: none; appearance: none; width: 100%; height: 4px; background: var(--gray-200); border-radius: 2px; outline: none; cursor: pointer; }
+  input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%; background: var(--blue-500); border: 2px solid var(--white); box-shadow: 0 1px 3px rgba(0,0,0,0.15); cursor: pointer; }
+  input[type="range"]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 50%; background: var(--blue-500); border: 2px solid var(--white); box-shadow: 0 1px 3px rgba(0,0,0,0.15); cursor: pointer; }
+  .color-row { margin-bottom: 7px; display: flex; align-items: center; gap: 8px; }
+  .color-row label { font-size: 10px; font-weight: 600; color: var(--gray-500); text-transform: uppercase; letter-spacing: 0.04em; min-width: 54px; }
+  input[type="color"] { -webkit-appearance: none; appearance: none; width: 26px; height: 26px; border: 1px solid var(--gray-300); border-radius: 6px; background: transparent; cursor: pointer; padding: 1px; }
+  input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+  input[type="color"]::-webkit-color-swatch { border: none; border-radius: 4px; }
+  .color-hex { font-size: 10px; font-family: "SF Mono", "Fira Code", ui-monospace, monospace; color: var(--gray-400); }
+  .btn-group { display: flex; flex-wrap: wrap; gap: 3px; margin-bottom: 7px; }
+  .btn-group button { font-size: 10px; padding: 3px 8px; border-radius: 5px; border: 1px solid var(--gray-200); background: var(--white); color: var(--gray-500); cursor: pointer; transition: all 0.15s; font-family: inherit; line-height: 1.4; }
+  .btn-group button:hover { border-color: var(--gray-300); color: var(--gray-700); }
+  .btn-group button.active { background: var(--blue-500); border-color: var(--blue-500); color: var(--white); }
+  .dpad { position: relative; width: 68px; height: 68px; background: var(--white); border: 1px solid var(--gray-200); border-radius: 8px; cursor: crosshair; margin-bottom: 3px; overflow: hidden; flex-shrink: 0; }
+  .dpad-crosshair-h, .dpad-crosshair-v { position: absolute; background: var(--gray-200); }
+  .dpad-crosshair-h { width: 100%; height: 1px; top: 50%; }
+  .dpad-crosshair-v { height: 100%; width: 1px; left: 50%; }
+  .dpad-dot { position: absolute; width: 12px; height: 12px; background: var(--blue-500); border: 2px solid var(--white); box-shadow: 0 1px 3px rgba(0,0,0,0.2); border-radius: 50%; transform: translate(-50%, -50%); transition: all 0.05s; pointer-events: none; }
+  .dpad-label { font-size: 9px; font-family: "SF Mono", "Fira Code", ui-monospace, monospace; color: var(--gray-400); }
+
+  /* ── CANVAS ── */
+  .preview-canvas { position: relative; overflow: auto; background: var(--white); border-bottom: 1px solid var(--gray-200); }
+  .canvas-grid { position: absolute; inset: 0; background-image: linear-gradient(to right, var(--gray-100) 1px, transparent 1px), linear-gradient(to bottom, var(--gray-100) 1px, transparent 1px); background-size: 20px 20px; pointer-events: none; z-index: 0; }
+  .canvas-content { position: relative; z-index: 1; padding: 28px 36px; min-width: 700px; }
+  .comp-section { margin-bottom: 24px; }
+  .comp-section-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--gray-400); margin-bottom: 10px; }
+  .comp-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-bottom: 10px; }
+  .comp-row-wrap { display: flex; align-items: flex-start; gap: 24px; flex-wrap: wrap; }
+  .state-label { font-size: 9px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--gray-400); text-align: center; margin-top: 6px; }
+  .comp-col { display: flex; flex-direction: column; align-items: flex-start; }
+
+  /* ── SEMANTICS ── */
+  .semantics-panel { display: flex; flex-direction: column; min-height: 0; overflow: hidden; background: var(--gray-50); }
+  .feelings-bar { padding: 12px 24px; border-bottom: 1px solid var(--gray-200); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; flex-shrink: 0; background: var(--white); }
+  .feelings-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 700; color: var(--gray-400); margin-right: 4px; white-space: nowrap; }
+  .feeling-tag { font-size: 13px; font-weight: 600; transition: all 0.3s; }
+  .feeling-sep { color: var(--gray-300); font-size: 12px; }
+  .notes-area { padding: 14px 24px; overflow-y: auto; flex: 1; min-height: 0; }
+  .note { font-size: 13px; line-height: 1.65; color: var(--gray-500); margin-bottom: 8px; }
+  .note.pattern { color: var(--blue-600); font-weight: 500; border-left: 2px solid var(--blue-500); padding-left: 12px; }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="header">
+    <h1>Design Semantics Explorer</h1>
+    <p>Explore how visual details shape emotional perception across a design system</p>
+  </div>
+  <div class="main-body">
+    <!-- CONTROLS -->
+    <div class="controls-panel">
+      <div class="controls-grid">
+        <div class="control-section">
+          <h3><span class="dot" style="background:var(--blue-500)"></span> Shape</h3>
+          <div class="slider-row"><div class="label-row"><label>Corner Radius</label><span class="value" id="v-radius">8px</span></div><input type="range" id="borderRadius" min="0" max="50" value="8"></div>
+          <div class="slider-row"><div class="label-row"><label>Padding H</label><span class="value" id="v-ph">20px</span></div><input type="range" id="paddingH" min="4" max="64" value="20"></div>
+          <div class="slider-row"><div class="label-row"><label>Padding V</label><span class="value" id="v-pv">10px</span></div><input type="range" id="paddingV" min="2" max="32" value="10"></div>
+          <div class="slider-row"><div class="label-row"><label>Font Size</label><span class="value" id="v-fs">14px</span></div><input type="range" id="fontSize" min="10" max="28" value="14"></div>
+        </div>
+        <div class="control-section">
+          <h3><span class="dot" style="background:#8b5cf6"></span> Border</h3>
+          <div class="slider-row"><div class="label-row"><label>Width</label><span class="value" id="v-bw">1px</span></div><input type="range" id="borderWidth" min="0" max="10" value="1"></div>
+          <div class="color-row"><label>Color</label><input type="color" id="borderColor" value="#d1d5db"><span class="color-hex" id="v-bc">#d1d5db</span></div>
+        </div>
+        <div class="control-section">
+          <h3><span class="dot" style="background:#3b82f6"></span> Shadow</h3>
+          <div style="display:flex;gap:10px;align-items:flex-start;">
+            <div>
+              <div class="dpad" id="dpad"><div class="dpad-crosshair-h"></div><div class="dpad-crosshair-v"></div><div class="dpad-dot" id="dpad-dot"></div></div>
+              <div class="dpad-label" id="v-sdir">x:0 y:2</div>
+            </div>
+            <div style="flex:1;min-width:0;">
+              <div class="slider-row"><div class="label-row"><label>Blur</label><span class="value" id="v-sb">4px</span></div><input type="range" id="shadowBlur" min="0" max="40" value="4"></div>
+              <div class="slider-row"><div class="label-row"><label>Spread</label><span class="value" id="v-ss">0px</span></div><input type="range" id="shadowSpread" min="0" max="20" value="0"></div>
+              <div class="slider-row"><div class="label-row"><label>Opacity</label><span class="value" id="v-so">12%</span></div><input type="range" id="shadowOpacity" min="0" max="100" value="12"></div>
+            </div>
+          </div>
+        </div>
+        <div class="control-section">
+          <h3><span class="dot" style="background:#10b981"></span> Colour</h3>
+          <div class="color-row"><label>Accent</label><input type="color" id="accentColor" value="#2563eb"><span class="color-hex" id="v-ac">#2563eb</span></div>
+          <div class="color-row"><label>Btn Text</label><input type="color" id="btnTextColor" value="#ffffff"><span class="color-hex" id="v-bt">#ffffff</span></div>
+          <div class="color-row"><label>Surface</label><input type="color" id="surfaceColor" value="#ffffff"><span class="color-hex" id="v-sf">#ffffff</span></div>
+          <div class="color-row"><label>Text</label><input type="color" id="textColor" value="#1f2937"><span class="color-hex" id="v-tc">#1f2937</span></div>
+        </div>
+        <div class="control-section">
+          <h3><span class="dot" style="background:#f59e0b"></span> Typography</h3>
+          <div style="margin-bottom:5px;">
+            <label style="font-size:10px;font-weight:600;color:var(--gray-500);text-transform:uppercase;letter-spacing:0.04em;display:block;margin-bottom:3px;">Font</label>
+            <div class="btn-group" id="font-buttons">
+              <button class="active" data-idx="0">Sans</button>
+              <button data-idx="1">Serif</button>
+              <button data-idx="2">Mono</button>
+            </div>
+          </div>
+          <div>
+            <label style="font-size:10px;font-weight:600;color:var(--gray-500);text-transform:uppercase;letter-spacing:0.04em;display:block;margin-bottom:3px;">Weight</label>
+            <div class="btn-group" id="weight-buttons">
+              <button data-w="300">Light</button>
+              <button data-w="400">Regular</button>
+              <button class="active" data-w="500">Medium</button>
+              <button data-w="600">Semi</button>
+              <button data-w="700">Bold</button>
+              <button data-w="900">Black</button>
+            </div>
+          </div>
+        </div>
+        <div class="control-section">
+          <h3><span class="dot" style="background:#ec4899"></span> Text</h3>
+          <div class="slider-row"><div class="label-row"><label>Letter Spacing</label><span class="value" id="v-ls">0px</span></div><input type="range" id="letterSpacing" min="-2" max="8" step="0.5" value="0"></div>
+          <div>
+            <label style="font-size:10px;font-weight:600;color:var(--gray-500);text-transform:uppercase;letter-spacing:0.04em;display:block;margin-bottom:3px;">Case</label>
+            <div class="btn-group" id="case-buttons">
+              <button class="active" data-case="none">As-is</button>
+              <button data-case="uppercase">UPPER</button>
+              <button data-case="lowercase">lower</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CANVAS -->
+    <div class="preview-canvas">
+      <div class="canvas-grid"></div>
+      <div class="canvas-content" id="canvas-content"></div>
+    </div>
+
+    <!-- SEMANTICS -->
+    <div class="semantics-panel">
+      <div class="feelings-bar">
+        <span class="feelings-label">This system feels</span>
+        <span id="feelings-tags"></span>
+      </div>
+      <div class="notes-area" id="notes-area"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const S = {
+  borderRadius: 8, paddingH: 20, paddingV: 10, fontSize: 14,
+  borderWidth: 1, borderColor: "#d1d5db",
+  shadowX: 0, shadowY: 2, shadowBlur: 4, shadowSpread: 0, shadowOpacity: 12,
+  accentColor: "#2563eb", btnTextColor: "#ffffff", surfaceColor: "#ffffff", textColor: "#1f2937",
+  fontIndex: 0, fontWeight: 500, letterSpacing: 0, textTransform: "none"
+};
+
+const FONTS = [  { name:"Sans", value:"-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif", cat:"sans" },  { name:"Serif", value:"Georgia,'Times New Roman',serif", cat:"serif" },  { name:"Mono", value:"'SF Mono','Fira Code','Courier New',monospace", cat:"mono" }];
+
+const feelingsEl = document.getElementById("feelings-tags");
+const notesEl = document.getElementById("notes-area");
+const canvasEl = document.getElementById("canvas-content");
+
+// ── Controls wiring ──
+const sliders = {
+  borderRadius:{el:document.getElementById("borderRadius"),vEl:document.getElementById("v-radius"),unit:"px"},
+  paddingH:{el:document.getElementById("paddingH"),vEl:document.getElementById("v-ph"),unit:"px"},
+  paddingV:{el:document.getElementById("paddingV"),vEl:document.getElementById("v-pv"),unit:"px"},
+  fontSize:{el:document.getElementById("fontSize"),vEl:document.getElementById("v-fs"),unit:"px"},
+  borderWidth:{el:document.getElementById("borderWidth"),vEl:document.getElementById("v-bw"),unit:"px"},
+  shadowBlur:{el:document.getElementById("shadowBlur"),vEl:document.getElementById("v-sb"),unit:"px"},
+  shadowSpread:{el:document.getElementById("shadowSpread"),vEl:document.getElementById("v-ss"),unit:"px"},
+  shadowOpacity:{el:document.getElementById("shadowOpacity"),vEl:document.getElementById("v-so"),unit:"%"},
+  letterSpacing:{el:document.getElementById("letterSpacing"),vEl:document.getElementById("v-ls"),unit:"px"}
+};
+Object.keys(sliders).forEach(k => { sliders[k].el.addEventListener("input", e => { S[k]=parseFloat(e.target.value); sliders[k].vEl.textContent=S[k]+sliders[k].unit; update(); }); });
+
+const colorMap = {accentColor:"ac",btnTextColor:"bt",surfaceColor:"sf",textColor:"tc",borderColor:"bc"};
+Object.keys(colorMap).forEach(k => {
+  const el=document.getElementById(k), vEl=document.getElementById("v-"+colorMap[k]);
+  el.addEventListener("input", e => { S[k]=e.target.value; vEl.textContent=e.target.value; update(); });
+});
+
+document.querySelectorAll("#font-buttons button").forEach(b => { b.addEventListener("click", () => { document.querySelectorAll("#font-buttons button").forEach(x=>x.classList.remove("active")); b.classList.add("active"); S.fontIndex=parseInt(b.dataset.idx); update(); }); });
+document.querySelectorAll("#weight-buttons button").forEach(b => { b.addEventListener("click", () => { document.querySelectorAll("#weight-buttons button").forEach(x=>x.classList.remove("active")); b.classList.add("active"); S.fontWeight=parseInt(b.dataset.w); update(); }); });
+document.querySelectorAll("#case-buttons button").forEach(b => { b.addEventListener("click", () => { document.querySelectorAll("#case-buttons button").forEach(x=>x.classList.remove("active")); b.classList.add("active"); S.textTransform=b.dataset.case; update(); }); });
+
+const dpad=document.getElementById("dpad"), dpadDot=document.getElementById("dpad-dot"), dpadLabel=document.getElementById("v-sdir");
+function handleDpad(e){ const rect=dpad.getBoundingClientRect(); const cx=e.clientX||(e.touches&&e.touches[0].clientX)||0; const cy=e.clientY||(e.touches&&e.touches[0].clientY)||0; S.shadowX=Math.round(Math.max(-1,Math.min(1,((cx-rect.left)/rect.width)*2-1))*12); S.shadowY=Math.round(Math.max(-1,Math.min(1,((cy-rect.top)/rect.height)*2-1))*12); updateDpad(); update(); }
+function updateDpad(){ dpadDot.style.left=((S.shadowX/12+1)/2)*100+"%"; dpadDot.style.top=((S.shadowY/12+1)/2)*100+"%"; dpadLabel.textContent="x:"+S.shadowX+" y:"+S.shadowY; }
+updateDpad();
+let dpadDown=false;
+dpad.addEventListener("mousedown",e=>{dpadDown=true;handleDpad(e);}); window.addEventListener("mousemove",e=>{if(dpadDown)handleDpad(e);}); window.addEventListener("mouseup",()=>{dpadDown=false;});
+dpad.addEventListener("touchstart",e=>{e.preventDefault();handleDpad(e);},{passive:false}); dpad.addEventListener("touchmove",e=>{e.preventDefault();handleDpad(e);},{passive:false});
+
+// ── Helpers ──
+function hexToHSL(hex){ let r=parseInt(hex.slice(1,3),16)/255,g=parseInt(hex.slice(3,5),16)/255,b=parseInt(hex.slice(5,7),16)/255; const max=Math.max(r,g,b),min=Math.min(r,g,b); let h=0,s=0,l=(max+min)/2; if(max!==min){const d=max-min;s=l>0.5?d/(2-max-min):d/(max+min);switch(max){case r:h=((g-b)/d+(g<b?6:0))/6;break;case g:h=((b-r)/d+2)/6;break;case b:h=((r-g)/d+4)/6;break;}} return{h:Math.round(h*360),s:Math.round(s*100),l:Math.round(l*100)}; }
+function hexToRGBA(hex,a){ return "rgba("+parseInt(hex.slice(1,3),16)+","+parseInt(hex.slice(3,5),16)+","+parseInt(hex.slice(5,7),16)+","+a+")"; }
+function lighten(hex,amt){ const hsl=hexToHSL(hex); return "hsl("+hsl.h+","+hsl.s+"%,"+Math.min(97,hsl.l+amt)+"%)"; }
+function darken(hex,amt){ const hsl=hexToHSL(hex); return "hsl("+hsl.h+","+hsl.s+"%,"+Math.max(3,hsl.l-amt)+"%)"; }
+
+// ── Render Components ──
+function renderCanvas(){
+  const r=S.borderRadius, bw=S.borderWidth, bc=S.borderColor, ac=S.accentColor, bt=S.btnTextColor, sf=S.surfaceColor, tc=S.textColor;
+  const ff=FONTS[S.fontIndex].value, fw=S.fontWeight, fs=S.fontSize, ls=S.letterSpacing, tt=S.textTransform;
+  const sh=(S.shadowBlur+S.shadowSpread)===0?"none":S.shadowX+"px "+S.shadowY+"px "+S.shadowBlur+"px "+S.shadowSpread+"px rgba(0,0,0,"+(S.shadowOpacity/100)+")";
+  const inputR = Math.min(r, 16);
+  const toggleR = Math.max(r, 4);
+  const smallR = Math.min(r, 6);
+
+  const base = "font-family:"+ff+";font-weight:"+fw+";font-size:"+fs+"px;letter-spacing:"+ls+"px;text-transform:"+tt+";line-height:1.2;";
+  const btnBase = base+"padding:"+S.paddingV+"px "+S.paddingH+"px;border-radius:"+r+"px;box-shadow:"+sh+";cursor:pointer;outline:none;transition:all .2s;display:inline-block;text-align:center;";
+
+  let html = "";
+
+  // ── Buttons ──
+  html += '<div class="comp-section"><div class="comp-section-title">Buttons</div><div class="comp-row">';
+  html += '<div class="comp-col"><div style="'+btnBase+'background:'+ac+';color:'+bt+';border:'+bw+'px solid '+ac+';">Primary</div><div class="state-label">Default</div></div>';
+  html += '<div class="comp-col"><div style="'+btnBase+'background:'+darken(ac,8)+';color:'+bt+';border:'+bw+'px solid '+darken(ac,8)+';transform:translateY(-1px);box-shadow:'+S.shadowX+'px '+S.shadowY+'px '+(S.shadowBlur+4)+'px '+S.shadowSpread+'px rgba(0,0,0,'+(Math.min(S.shadowOpacity+8,100)/100)+');">Primary</div><div class="state-label">Hover</div></div>';
+  html += '<div class="comp-col"><div style="'+btnBase+'background:'+darken(ac,14)+';color:'+bt+';border:'+bw+'px solid '+darken(ac,14)+';transform:translateY(0);box-shadow:none;">Primary</div><div class="state-label">Pressed</div></div>';
+  html += '<div class="comp-col"><div style="'+btnBase+'background:'+lighten(ac,28)+';color:'+hexToRGBA(bt,0.7)+';border:'+bw+'px solid '+lighten(ac,28)+';opacity:0.6;cursor:not-allowed;">Primary</div><div class="state-label">Disabled</div></div>';
+  html += '<div class="comp-col"><div style="'+btnBase+'background:'+sf+';color:'+tc+';border:'+Math.max(bw,1)+'px solid '+bc+';">Secondary</div><div class="state-label">Outline</div></div>';
+  html += '<div class="comp-col"><div style="'+btnBase+'background:transparent;color:'+ac+';border:'+bw+'px solid transparent;box-shadow:none;text-decoration:underline;text-underline-offset:2px;">Tertiary</div><div class="state-label">Text</div></div>';
+  html += '</div></div>';
+
+  // ── Inputs ──
+  const inputBase = "font-family:"+ff+";font-size:"+fs+"px;padding:"+S.paddingV+"px "+S.paddingH+"px;border-radius:"+inputR+"px;outline:none;width:180px;display:block;color:"+tc+";letter-spacing:"+ls+"px;";
+  html += '<div class="comp-section"><div class="comp-section-title">Input Fields</div><div class="comp-row">';
+  html += '<div class="comp-col"><div style="'+inputBase+'background:'+sf+';border:'+Math.max(bw,1)+'px solid '+bc+';box-shadow:'+sh+';">Placeholder text</div><div class="state-label">Default</div></div>';
+  html += '<div class="comp-col"><div style="'+inputBase+'background:'+sf+';border:2px solid '+ac+';box-shadow:0 0 0 3px '+hexToRGBA(ac,0.12)+';"><span style="color:'+tc+'">Focused input</span></div><div class="state-label">Focus</div></div>';
+  html += '<div class="comp-col"><div style="'+inputBase+'background:#fef2f2;border:2px solid #ef4444;box-shadow:0 0 0 3px rgba(239,68,68,0.1);color:#991b1b;">Invalid entry</div><div class="state-label">Error</div></div>';
+  html += '<div class="comp-col"><div style="'+inputBase+'background:'+lighten(sf,0)+';border:'+Math.max(bw,1)+'px solid '+lighten(bc,12)+';opacity:0.5;cursor:not-allowed;color:'+S.textColor+';">Disabled</div><div class="state-label">Disabled</div></div>';
+  html += '</div></div>';
+
+  // ── Toggles, Checkboxes, Radios ──
+  const checkR = Math.min(r, 6);
+  html += '<div class="comp-section"><div class="comp-section-title">Selection Controls</div><div class="comp-row" style="gap:28px;">';
+
+  // Toggles
+  html += '<div class="comp-col"><div style="display:flex;align-items:center;gap:10px;">';
+  html += '<div style="width:44px;height:24px;border-radius:'+Math.max(r,12)+'px;background:'+ac+';position:relative;cursor:pointer;box-shadow:inset 0 1px 2px rgba(0,0,0,0.08);"><div style="position:absolute;top:2px;left:22px;width:20px;height:20px;border-radius:50%;background:white;box-shadow:0 1px 3px rgba(0,0,0,0.2);transition:all .2s;"></div></div>';
+  html += '<span style="'+base+'color:'+tc+';">Enabled</span></div>';
+  html += '<div style="display:flex;align-items:center;gap:10px;margin-top:8px;">';
+  html += '<div style="width:44px;height:24px;border-radius:'+Math.max(r,12)+'px;background:'+bc+';position:relative;cursor:pointer;box-shadow:inset 0 1px 2px rgba(0,0,0,0.06);"><div style="position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;background:white;box-shadow:0 1px 3px rgba(0,0,0,0.2);"></div></div>';
+  html += '<span style="'+base+'color:'+tc+';">Disabled</span></div>';
+  html += '<div class="state-label">Toggle</div></div>';
+
+  // Checkboxes
+  html += '<div class="comp-col"><div style="display:flex;flex-direction:column;gap:8px;">';
+  html += '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;'+base+'color:'+tc+';"><span style="width:20px;height:20px;border-radius:'+checkR+'px;background:'+ac+';display:flex;align-items:center;justify-content:center;flex-shrink:0;"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2.5 6L5 8.5L9.5 3.5" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Checked</label>';
+  html += '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;'+base+'color:'+tc+';"><span style="width:20px;height:20px;border-radius:'+checkR+'px;background:'+sf+';border:'+Math.max(bw,1)+'px solid '+bc+';display:flex;align-items:center;justify-content:center;flex-shrink:0;"></span>Unchecked</label>';
+  html += '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;'+base+'color:#ef4444;"><span style="width:20px;height:20px;border-radius:'+checkR+'px;background:#fef2f2;border:2px solid #ef4444;display:flex;align-items:center;justify-content:center;flex-shrink:0;"></span>Error</label>';
+  html += '</div><div class="state-label">Checkbox</div></div>';
+
+  // Radios
+  html += '<div class="comp-col"><div style="display:flex;flex-direction:column;gap:8px;">';
+  html += '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;'+base+'color:'+tc+';"><span style="width:20px;height:20px;border-radius:50%;background:'+sf+';border:2px solid '+ac+';display:flex;align-items:center;justify-content:center;flex-shrink:0;"><span style="width:10px;height:10px;border-radius:50%;background:'+ac+';"></span></span>Selected</label>';
+  html += '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;'+base+'color:'+tc+';"><span style="width:20px;height:20px;border-radius:50%;background:'+sf+';border:'+Math.max(bw,1)+'px solid '+bc+';display:flex;align-items:center;justify-content:center;flex-shrink:0;"></span>Unselected</label>';
+  html += '</div><div class="state-label">Radio</div></div>';
+
+  html += '</div></div>';
+
+  // ── Card + Badge + Accordion ──
+  html += '<div class="comp-section"><div class="comp-section-title">Containers &amp; Elements</div><div class="comp-row-wrap">';
+
+  // Card
+  html += '<div style="width:240px;border-radius:'+r+'px;border:'+Math.max(bw,1)+'px solid '+bc+';background:'+sf+';box-shadow:'+sh+';overflow:hidden;">';
+  html += '<div style="padding:'+S.paddingV*1.4+'px '+S.paddingH+'px;border-bottom:1px solid '+bc+';">';
+  html += '<div style="'+base+'font-weight:600;color:'+tc+';margin-bottom:4px;">Card Title</div>';
+  html += '<div style="font-family:'+ff+';font-size:'+(fs-2)+'px;color:'+hexToRGBA(tc,0.55)+';line-height:1.45;">Secondary text that describes the card content briefly.</div></div>';
+  html += '<div style="padding:'+(S.paddingV*0.8)+'px '+S.paddingH+'px;display:flex;justify-content:flex-end;gap:8px;">';
+  html += '<span style="'+base+'color:'+ac+';cursor:pointer;font-size:'+(fs-1)+'px;">Action</span></div></div>';
+
+  // Badges + Chips
+  html += '<div style="display:flex;flex-direction:column;gap:10px;">';
+  html += '<div style="display:flex;gap:8px;flex-wrap:wrap;">';
+  html += '<span style="font-family:'+ff+';font-size:'+(fs-3)+'px;font-weight:600;padding:3px 10px;border-radius:'+Math.max(r,10)+'px;background:'+ac+';color:'+bt+';letter-spacing:'+ls+'px;">Badge</span>';
+  html += '<span style="font-family:'+ff+';font-size:'+(fs-3)+'px;font-weight:600;padding:3px 10px;border-radius:'+Math.max(r,10)+'px;background:#dcfce7;color:#166534;letter-spacing:'+ls+'px;">Success</span>';
+  html += '<span style="font-family:'+ff+';font-size:'+(fs-3)+'px;font-weight:600;padding:3px 10px;border-radius:'+Math.max(r,10)+'px;background:#fef3c7;color:#92400e;letter-spacing:'+ls+'px;">Warning</span>';
+  html += '<span style="font-family:'+ff+';font-size:'+(fs-3)+'px;font-weight:600;padding:3px 10px;border-radius:'+Math.max(r,10)+'px;background:#fef2f2;color:#991b1b;letter-spacing:'+ls+'px;">Error</span>';
+  html += '</div>';
+
+  // Accordion
+  html += '<div style="width:240px;border-radius:'+r+'px;border:'+Math.max(bw,1)+'px solid '+bc+';background:'+sf+';box-shadow:'+sh+';overflow:hidden;">';
+  html += '<div style="padding:'+(S.paddingV)+'px '+S.paddingH+'px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;border-bottom:1px solid '+bc+';">';
+  html += '<span style="'+base+'font-weight:600;color:'+tc+';">Accordion Item</span>';
+  html += '<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3.5 5.25L7 8.75L10.5 5.25" stroke="'+tc+'" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>';
+  html += '<div style="padding:'+(S.paddingV)+'px '+S.paddingH+'px;font-family:'+ff+';font-size:'+(fs-1)+'px;color:'+hexToRGBA(tc,0.6)+';line-height:1.5;">Expandable content area that reveals additional information when the header is clicked.</div></div>';
+
+  html += '</div>';
+  html += '</div></div>';
+
+  canvasEl.innerHTML = html;
+}
+
+// ── Semantic Engine ──
+function inferSemantics(){
+  const feelings=[], notes=[];
+  const r=S.borderRadius, bw=S.borderWidth, shadow=S.shadowBlur+S.shadowSpread;
+  const bgHSL=hexToHSL(S.accentColor), fc=FONTS[S.fontIndex].cat, fw=S.fontWeight;
+
+  if(r===0){ feelings.push({t:"sharp",w:1},{t:"rigid",w:0.8},{t:"precise",w:0.7},{t:"formal",w:0.6}); notes.push("Zero radius across the system produces hard corners everywhere \u2014 buttons, inputs, cards, and toggles all share the same structural rigidity. This creates a design language of precision and authority, where every edge means business."); }
+  else if(r<=4){ feelings.push({t:"refined",w:0.9},{t:"professional",w:0.8},{t:"clean",w:0.7},{t:"subtle",w:0.5}); notes.push("A slight corner radius (1\u20134px) across all components creates a system that feels polished and intentional. Each element softens just enough to feel approachable without losing its professional edge \u2014 the signature of enterprise and fintech design systems."); }
+  else if(r<=12){ feelings.push({t:"friendly",w:0.9},{t:"approachable",w:0.85},{t:"modern",w:0.8},{t:"balanced",w:0.6}); notes.push("Medium rounding (5\u201312px) is the sweet spot for a balanced design system. Buttons feel clickable, inputs feel comfortable, cards feel welcoming. This is the contemporary default that signals \"we're modern and we care about usability.\""); }
+  else if(r<=24){ feelings.push({t:"soft",w:0.9},{t:"playful",w:0.8},{t:"casual",w:0.7},{t:"warm",w:0.75}); notes.push("High rounding (13\u201324px) gives the entire system a soft, cushioned feel. Every component looks huggable. This works beautifully for consumer apps, wellness brands, and products aimed at a broad, non-technical audience."); }
+  else{ feelings.push({t:"pill-shaped",w:1},{t:"trendy",w:0.8},{t:"bold",w:0.7},{t:"contemporary",w:0.75}); notes.push("Full pill shapes across the system create a distinctive, highly styled aesthetic. Buttons become capsules, badges become lozenges, and the overall feel is confidently contemporary \u2014 but be aware this can limit visual hierarchy options."); }
+
+  if(shadow===0){ feelings.push({t:"flat",w:0.8},{t:"minimal",w:0.9},{t:"clean",w:0.5}); notes.push("A shadowless system is fully flat \u2014 all components exist on the same plane. Hierarchy must come from colour, weight, and spacing alone. This is design at its most honest and restrained."); }
+  else if(shadow<=8){ feelings.push({t:"elevated",w:0.7},{t:"layered",w:0.6},{t:"grounded",w:0.5}); notes.push("Subtle shadows across the system create a gentle sense of layering. Cards float slightly, buttons feel pressable, and inputs feel recessed. The interface gains a quiet dimensionality without becoming heavy."); }
+  else if(shadow<=20){ feelings.push({t:"dimensional",w:0.8},{t:"tactile",w:0.85},{t:"interactive",w:0.7}); notes.push("Medium shadows give the system a tangible quality. Every component feels like it occupies real space \u2014 cards are surfaces you could slide, buttons are objects you could press. The interface becomes almost physical."); }
+  else{ feelings.push({t:"dramatic",w:0.9},{t:"skeuomorphic",w:0.85},{t:"physical",w:0.8},{t:"heavy",w:0.5}); notes.push("Heavy shadows across the entire system create a strongly dimensional world. This can feel rich and tactile, but risks visual heaviness \u2014 every element competes for depth, and the interface can feel cluttered."); }
+
+  if(shadow>0){
+    if(S.shadowY>2&&Math.abs(S.shadowX)<3) notes.push("Top-down light direction feels natural across all components \u2014 it's how we experience light in the real world. Cards, buttons, and inputs all share a coherent sense of physical space.");
+    else if(S.shadowY<-2){ feelings.push({t:"unusual",w:0.6},{t:"unsettling",w:0.4}); notes.push("Upward shadows across the system create a persistent sense of wrongness. Applied to every component, this becomes a strong atmospheric choice \u2014 eerie, otherworldly, or deliberately subversive."); }
+    else if(Math.abs(S.shadowX)>3&&Math.abs(S.shadowY)<=2){ feelings.push({t:"dynamic",w:0.5},{t:"dramatic",w:0.4}); notes.push("Side-lit shadows give the system a cinematic, theatrical quality. Every component feels spotlit from the same dramatic angle."); }
+  }
+
+  if(bw===0){ feelings.push({t:"borderless",w:0.5},{t:"seamless",w:0.5}); }
+  else if(bw<=1){ feelings.push({t:"defined",w:0.6},{t:"structured",w:0.5}); notes.push("A 1px border system provides crisp definition. Each component is cleanly bounded \u2014 inputs are clearly fields, cards are clearly containers. Structure through subtlety."); }
+  else if(bw<=3){ feelings.push({t:"outlined",w:0.7},{t:"deliberate",w:0.65},{t:"graphic",w:0.6}); notes.push("2\u20133px borders across the system create a graphic, illustration-like quality. Every component is deliberately outlined, giving the interface a designed, almost print-like character."); }
+  else{ feelings.push({t:"chunky",w:0.8},{t:"retro",w:0.7},{t:"heavy-handed",w:0.5},{t:"bold",w:0.6}); notes.push("Thick borders (4px+) on every component create a bold, chunky system. This is neo-brutalist territory \u2014 raw, unapologetic, and full of personality. It either looks intentionally radical or accidentally unfinished."); }
+
+  if(bgHSL.s<10){
+    if(bgHSL.l<20){ feelings.push({t:"serious",w:0.7},{t:"premium",w:0.6},{t:"powerful",w:0.5}); notes.push("A dark, desaturated accent colour gives the system gravitas. Buttons feel weighty, selections feel consequential. This is a design system that takes itself seriously."); }
+    else if(bgHSL.l>90){ feelings.push({t:"clean",w:0.6},{t:"minimal",w:0.5}); notes.push("A near-white accent makes primary actions almost invisible \u2014 the system whispers rather than directs. This requires strong structural hierarchy to compensate."); }
+    else{ feelings.push({t:"neutral",w:0.6},{t:"balanced",w:0.4}); notes.push("A grey accent creates a deliberately muted system. Nothing shouts, nothing demands. The emotional temperature is cool and businesslike."); }
+  } else {
+    const h=bgHSL.h, hue=h<15||h>=345?"red":h<40?"orange":h<65?"yellow":h<160?"green":h<200?"cyan":h<260?"blue":h<300?"purple":"pink";
+    const hueData={
+      red:["Red as the system's accent colour charges every interaction with urgency. Checked boxes feel like warnings, primary buttons feel like alarms, and toggles feel like kill switches. Use sparingly or the system feels perpetually anxious.",[{t:"urgent",w:0.9},{t:"passionate",w:0.7},{t:"attention-grabbing",w:0.85}]],
+      orange:["Orange as an accent gives the system warmth and commercial energy. It's the colour of \"Buy Now\" and \"Get Started\" \u2014 inviting and action-oriented without triggering alarm.",[{t:"energetic",w:0.8},{t:"warm",w:0.7},{t:"inviting",w:0.65}]],
+      yellow:["Yellow accents radiate optimism throughout the system. Every interaction point glows with cheerfulness \u2014 but watch for contrast issues, especially on light backgrounds.",[{t:"optimistic",w:0.7},{t:"cheerful",w:0.75},{t:"attention-grabbing",w:0.6}]],
+      green:["Green as the primary accent makes the system feel safe and affirmative. Every action says \"yes\" \u2014 this is the right thing to do. Particularly effective for health, finance, and sustainability products.",[{t:"safe",w:0.8},{t:"positive",w:0.75},{t:"natural",w:0.6},{t:"go",w:0.7}]],
+      blue:["Blue is the most universally trusted system colour. Buttons, toggles, selections, and focus states all inherit its calm authority. There's a reason it dominates enterprise, social, and productivity software.",[{t:"trustworthy",w:0.9},{t:"calm",w:0.7},{t:"professional",w:0.8}]],
+      purple:["Purple accents lend the system a creative, premium quality. Every interactive element carries a hint of luxury and imagination. This works beautifully for creative tools, design platforms, and lifestyle brands.",[{t:"luxurious",w:0.8},{t:"creative",w:0.75},{t:"premium",w:0.7}]],
+      pink:["Pink accents make the system feel playful and emotionally warm. Buttons invite rather than command, and the overall experience feels personal and human. Increasingly popular in consumer and social products.",[{t:"playful",w:0.8},{t:"youthful",w:0.7},{t:"warm",w:0.6}]],
+      cyan:["Cyan accents feel fresh and digitally native. The system reads as modern, clean, and tech-forward \u2014 sitting at the intersection of blue's trust and green's positivity.",[{t:"fresh",w:0.7},{t:"digital",w:0.65},{t:"cool",w:0.6}]]
+    };
+    if(hueData[hue]){ notes.push(hueData[hue][0]); hueData[hue][1].forEach(f=>feelings.push(f)); }
+    if(bgHSL.s>70) feelings.push({t:"vibrant",w:0.6},{t:"energetic",w:0.4});
+    else if(bgHSL.s<30){ feelings.push({t:"muted",w:0.5},{t:"sophisticated",w:0.5},{t:"subdued",w:0.4}); notes.push("A desaturated accent creates a restrained, editorial system. Interactions feel curated rather than demanding \u2014 the design equivalent of a quiet, confident voice."); }
+  }
+
+  if(fw<=300){ feelings.push({t:"delicate",w:0.7},{t:"elegant",w:0.65},{t:"airy",w:0.5}); notes.push("Light type weight across the system creates an airy, elegant feel. Labels whisper, buttons suggest. Beautiful but fragile \u2014 readability can suffer, especially on mobile."); }
+  else if(fw<=400){ feelings.push({t:"balanced",w:0.4},{t:"readable",w:0.5}); }
+  else if(fw<=600){ feelings.push({t:"confident",w:0.6},{t:"clear",w:0.5}); notes.push("Medium to semi-bold weight gives the system a confident, clear voice. Every label and button text is readable and assertive without being aggressive."); }
+  else if(fw<=700){ feelings.push({t:"assertive",w:0.7},{t:"impactful",w:0.65}); notes.push("Bold weight across the system makes every element feel emphatic. This works for high-energy interfaces but can feel overwhelming in data-dense environments."); }
+  else{ feelings.push({t:"loud",w:0.8},{t:"demanding",w:0.7},{t:"heavy",w:0.5}); notes.push("Extra-bold weight makes the system typographically loud. Every label, every button shouts. This can feel powerful or exhausting depending on context and content density."); }
+
+  if(fc==="sans") feelings.push({t:"modern",w:0.5},{t:"clean",w:0.4},{t:"digital-native",w:0.4});
+  else if(fc==="serif"){ feelings.push({t:"traditional",w:0.7},{t:"authoritative",w:0.65},{t:"editorial",w:0.5}); notes.push("Serif type across a design system is a rare and distinctive choice. Inputs, buttons, and labels all carry an editorial gravitas that sets the product apart from the sans-serif mainstream."); }
+  else if(fc==="mono"){ feelings.push({t:"technical",w:0.8},{t:"mechanical",w:0.6},{t:"code-like",w:0.7}); notes.push("Monospace throughout the system transforms every component into something that feels engineered and terminal-like. This is a design system for developers, by developers \u2014 or one that wants to feel that way."); }
+
+  if(S.paddingV<=6&&S.paddingH<=12){ feelings.push({t:"compact",w:0.6},{t:"utilitarian",w:0.5}); notes.push("Tight padding across the system creates a dense, utilitarian interface. Every component is space-efficient \u2014 this is a tool, not a magazine. Ideal for power users and data-heavy applications."); }
+  else if(S.paddingV>=18&&S.paddingH>=40){ feelings.push({t:"generous",w:0.7},{t:"touch-friendly",w:0.65},{t:"spacious",w:0.6}); notes.push("Generous padding throughout gives the system a luxurious, breathable quality. Every button invites tapping, every input welcomes text. The interface respects personal space."); }
+
+  if(S.letterSpacing>=3){ feelings.push({t:"spaced-out",w:0.6},{t:"editorial",w:0.5},{t:"airy",w:0.4}); notes.push("Wide letter spacing across the system gives every label and button a fashion-editorial quality. Letters breathe, words become visual objects."); }
+  else if(S.letterSpacing<=-1){ feelings.push({t:"tight",w:0.5},{t:"dense",w:0.4}); notes.push("Negative tracking creates density across the system. Text feels urgent and compressed \u2014 every component carries information-rich energy."); }
+
+  if(S.textTransform==="uppercase"){ feelings.push({t:"commanding",w:0.6},{t:"structured",w:0.5}); notes.push("All-caps across the system adds formality and authority to every component. Labels command, buttons direct, and the overall tone is institutional and structured."); }
+
+  // Patterns
+  const tags=new Set(feelings.map(f=>f.t));
+  if(tags.has("sharp")&&tags.has("flat")&&bw===0&&bgHSL.s<10) notes.push("~ Sharp + flat + borderless + neutral = A brutalist or hyper-minimal system. Every component is stripped to the bone. Either radical and intentional, or alarmingly unstyled.");
+  if(tags.has("pill-shaped")&&shadow>15&&bgHSL.s>60) notes.push("~ Pill shapes + heavy shadows + vivid accent = A high-energy, attention-seeking system. Every component screams for interaction. This is the design language of aggressive conversion funnels.");
+  if(tags.has("chunky")&&tags.has("sharp")&&(fc==="mono"||fc==="serif")) notes.push("~ Thick borders + sharp corners + distinctive typeface = A neo-brutalist system with strong indie character. Every component feels hand-drawn and anti-establishment.");
+  if(r>=8&&shadow<=4&&bw<=1&&bgHSL.s>40&&fw>=500&&fc==="sans") notes.push("~ This combination produces the contemporary product design default \u2014 clean, colourful, rounded, sans-serif. The lingua franca of modern SaaS (Stripe, Linear, Vercel, Figma).");
+  if(tags.has("dramatic")&&tags.has("sharp")&&bgHSL.l<30) notes.push("~ Heavy shadow + sharp corners + dark accent = A system built for dramatic authority. Every interaction feels consequential and weighty.");
+  if(tags.has("soft")&&tags.has("generous")&&(tags.has("warm")||tags.has("playful"))) notes.push("~ Soft shapes + generous spacing + warm tones = A nurturing, human-centred system. The digital equivalent of a comfortable room with rounded furniture and warm lighting.");
+  if(tags.has("delicate")&&bw<=1&&shadow<=4) notes.push("~ Light weight + thin borders + subtle shadows = An ethereal, glass-like system. Beautiful and airy, but potentially fragile in high-density or low-contrast environments.");
+
+  const sorted=feelings.sort((a,b)=>b.w-a.w); const unique=[]; const seen=new Set();
+  for(const f of sorted){if(!seen.has(f.t)){seen.add(f.t);unique.push(f);}} return{feelings:unique.slice(0,8),notes};
+}
+
+function update(){
+  renderCanvas();
+  const sem=inferSemantics();
+  let html="";
+  sem.feelings.forEach((f,i)=>{ const hue=220+i*12,light=42-i*2,opacity=0.5+f.w*0.5; html+='<span class="feeling-tag" style="color:hsl('+hue+',70%,'+light+'%);opacity:'+opacity+'">'+f.t+'</span>'; if(i<sem.feelings.length-1) html+='<span class="feeling-sep"> / </span>'; });
+  feelingsEl.innerHTML=html;
+  let notesHTML="";
+  sem.notes.forEach(n=>{ if(n.startsWith("~ ")) notesHTML+='<p class="note pattern">'+n.slice(2)+'</p>'; else notesHTML+='<p class="note">'+n+'</p>'; });
+  notesEl.innerHTML=notesHTML;
+}
+
+update();
+</script>
+</body>
+</html>
